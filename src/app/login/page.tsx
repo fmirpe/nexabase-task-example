@@ -21,11 +21,14 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      // El middleware se encargará de la redirección
+      
+      // ✅ Pequeña espera para asegurar que el estado se actualizó
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // ✅ Redirigir al dashboard
       router.push('/dashboard');
       
     } catch (err) {
-      console.error('❌ Login error:', err);
       const axiosError = err as AxiosError<{ message: string }>;
       setError(axiosError.response?.data?.message || 'Error al iniciar sesión');
       setLoading(false);
@@ -58,6 +61,8 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
+                style={{ backgroundColor: '#fff', color: '#000' }}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Email"
               />
@@ -68,6 +73,8 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
+                style={{ backgroundColor: '#fff', color: '#000' }}
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
                 placeholder="Contraseña"
               />

@@ -29,9 +29,9 @@ export function useTasks(): UseTasksReturn {
   const fetchTasks = async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await nexabase.getRecords<Task>("tasks", {
+      const response = await nexabase.getRecords<Task>("task", {
         sort: "-created_at",
-        limit: 100,
+        per_page: 100,
       });
       setTasks(response.data || []);
       setError(null);
@@ -45,9 +45,10 @@ export function useTasks(): UseTasksReturn {
 
   const createTask = async (taskData: CreateTaskData): Promise<Task> => {
     try {
-      const response = await nexabase.createRecord<Task>("tasks", taskData);
-      setTasks((prev) => [response, ...prev]);
-      return response;
+      const response = await nexabase.createRecord<Task>("task", taskData);
+      const newTask = response.data ? response.data : response;
+      setTasks((prev) => [newTask, ...prev]);
+      return newTask;
     } catch (err) {
       const axiosError = err as AxiosError<{ message: string }>;
       throw new Error(
@@ -61,11 +62,13 @@ export function useTasks(): UseTasksReturn {
     taskData: UpdateTaskData
   ): Promise<Task> => {
     try {
-      const response = await nexabase.updateRecord<Task>("tasks", id, taskData);
+      const response = await nexabase.updateRecord<Task>("task", id, taskData);
+      const updatedTask = response.data ? response.data : response;
+
       setTasks((prev) =>
-        prev.map((task) => (task.id === id ? { ...task, ...response } : task))
+        prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
       );
-      return response;
+      return updatedTask;
     } catch (err) {
       const axiosError = err as AxiosError<{ message: string }>;
       throw new Error(
@@ -76,7 +79,7 @@ export function useTasks(): UseTasksReturn {
 
   const deleteTask = async (id: string): Promise<void> => {
     try {
-      await nexabase.deleteRecord("tasks", id);
+      await nexabase.deleteRecord("task", id);
       setTasks((prev) => prev.filter((task) => task.id !== id));
     } catch (err) {
       const axiosError = err as AxiosError<{ message: string }>;

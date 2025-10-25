@@ -10,34 +10,18 @@ import React, {
 import nexabase from "@/lib/nexabase";
 import { User } from "@/types";
 
-type AuthContextValue =
-  | {
-      user: User | null;
-      login: (email: string, password: string) => Promise<void>;
-      register: (
-        email: string,
-        password: string,
-        fullName: string
-      ) => Promise<void>;
-      logout: () => void;
-      loading: boolean;
-    }
-  | undefined;
+type AuthContextValue = {
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, fullName: string) => Promise<void>;
+  logout: () => void;
+  loading: boolean;
+};
 
-const AuthContext: React.Context<AuthContextValue> =
-  createContext<AuthContextValue>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 type AuthProviderProps = {
   children: ReactNode;
-};
-
-const getCookie = (name: string): string | null => {
-  if (typeof window !== "undefined") {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop()?.split(";").shift() || null;
-  }
-  return null;
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -45,39 +29,76 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const token = getCookie("nexabase_token");
+    let isMounted = true;
+    let isInitializing = false;
 
-      if (token) {
+    const initializeAuth = async () => {
+      if (isInitializing) return;
+      isInitializing = true;
+
+      try {
+        const token = localStorage.getItem("nexabase_token");
+
+        if (!token) {
+          if (isMounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
         nexabase.setToken(token);
 
         try {
           const userProfile = await nexabase.getUserProfile();
-          setUser(userProfile);
-        } catch (error) {
-          console.error("🎯 CONTEXT: Error loading user:", error);
-          // Token inválido
-          document.cookie =
-            "nexabase_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-          nexabase.setToken("");
+
+          if (isMounted) {
+            setUser(userProfile);
+          }
+        } catch (error: any) {
+          console.error("Error loading user profile:", error);
+
+          if (error?.response?.status === 401) {
+            console.log("Token inválido (401), limpiando...");
+            localStorage.removeItem("nexabase_token");
+            nexabase.setToken("");
+          } else {
+            console.log("Error temporal, manteniendo token");
+          }
+
+          if (isMounted) {
+            setUser(null);
+          }
+        }
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+        if (isMounted) {
           setUser(null);
         }
-      } else {
-        setUser(null);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
 
     initializeAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
     try {
-      const { auth, user } = await nexabase.login(email, password);
-      setUser(user);
+      const { auth, user: userData } = await nexabase.login(email, password);
+
+      localStorage.setItem("nexabase_token", auth.access_token);
+      nexabase.setToken(auth.access_token);
+
+      setUser(userData);
     } catch (error) {
-      console.error("🎯 ERROR in useAuth.login:", error);
+      console.error("Login error:", error);
       throw error;
     }
   };
@@ -91,17 +112,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const logout = (): void => {
-    console.log("🎯 LOGOUT: Starting logout...");
-    nexabase.logout();
+    localStorage.removeItem("nexabase_token");
+    nexabase.setToken("");
     setUser(null);
 
-    // Redirigir después del logout
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
   };
 
-  const value = {
+  const value: AuthContextValue = {
     user,
     login,
     register,
@@ -109,10 +129,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     loading,
   };
 
-  return React.createElement(AuthContext.Provider, { value }, children);
+  // ✅ Usar React.createElement para evitar error de Turbopack
+  return React.createElement(
+    AuthContext.Provider,
+    { value: value },
+    children
+  );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
 
   if (context === undefined) {

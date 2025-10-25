@@ -10,11 +10,29 @@ import {
 } from "@/types";
 
 // Utility functions para cookies
+// lib/nexabase.ts
 const setCookie = (name: string, value: string, days: number = 1) => {
   if (typeof window !== "undefined") {
     const expires = new Date();
     expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    document.cookie = `${name}=${value}; expires=${expires.toUTCString()}; path=/; secure; samesite=strict`;
+    
+    // ✅ Formato más simple y compatible
+    const cookieString = `${name}=${value}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+    
+    console.log("🔥 Setting cookie with string:", cookieString.substring(0, 80) + "...");
+    document.cookie = cookieString;
+    
+    // ✅ Verificación inmediata
+    const allCookies = document.cookie;
+    console.log("🔥 All cookies after setting:", allCookies);
+    
+    const testRead = allCookies.split('; ').find(row => row.startsWith(`${name}=`));
+    console.log("🔥 Cookie read test:", testRead ? "✅ SUCCESS" : "❌ FAILED");
+    
+    if (!testRead) {
+      console.error("🔥 ❌ CRITICAL ERROR: Cookie was not saved!");
+      console.error("🔥 This might be a browser security issue or extension blocking cookies");
+    }
   }
 };
 
@@ -44,6 +62,7 @@ class NexaBaseClient {
         "Content-Type": "application/json",
         ...(apiKey && { "X-API-Key": apiKey }),
       },
+      withCredentials: true,
     });
 
     this.client.interceptors.request.use((config) => {
@@ -68,34 +87,31 @@ class NexaBaseClient {
     );
   }
 
-  async login(
-    email: string,
-    password: string
-  ): Promise<{ auth: AuthResponse; user: User }> {
-    console.log("🔥 A. NexaBase.login called");
-
+  async login(email: string, password: string) {
     try {
       const response = await this.client.post<AuthResponse>("/auth/login", {
         email,
         password,
       });
 
-      console.log("🔥 D. Login response received:", response.data);
-
       this.token = response.data.access_token;
 
-      // ✅ GUARDAR en cookies (expires en 15 minutos)
-      setCookie("nexabase_token", this.token, 1 / 96); // 15 minutos
-      console.log("🔥 F. Token saved to cookies");
+      if (typeof window !== "undefined") {
+        // Guardar en cookie
+        const expires = new Date();
+        expires.setTime(expires.getTime() + 24 * 60 * 60 * 1000);
+        document.cookie = `nexabase_token=${this.token}; expires=${expires.toUTCString()}; path=/; SameSite=Lax`;
+        
+        // ✅ TAMBIÉN guardar en localStorage como backup
+        localStorage.setItem("nexabase_token", this.token);
+        
+        console.log("🔥 Token saved in cookie AND localStorage");
+      }
 
       const userProfile = await this.getUserProfile();
-
-      return {
-        auth: response.data,
-        user: userProfile,
-      };
+      return { auth: response.data, user: userProfile };
     } catch (error) {
-      console.error("🔥 ERROR in nexabase.login:", error);
+      console.error("🔥 ERROR:", error);
       throw error;
     }
   }
@@ -177,7 +193,7 @@ class NexaBaseClient {
     collection: string,
     params?: Record<string, unknown>
   ): Promise<PaginatedResponse<T>> {
-    const response = await this.client.get(`/api/collections/${collection}`, {
+    const response = await this.client.get(`/api/v1/collections/${collection}/documents`, {
       params,
     });
 
@@ -205,7 +221,7 @@ class NexaBaseClient {
 
     try {
       const response = await this.client.post<T>(
-        `/api/collections/${collection}`,
+        `/api/v1/collections/${collection}/documents`,
         data
       );
       console.log("✅ CREATE SUCCESS:", response.data);
@@ -227,7 +243,7 @@ class NexaBaseClient {
     data: Record<string, unknown> | CreateTaskData | UpdateTaskData
   ): Promise<T> {
     const response = await this.client.put<T>(
-      `/api/collections/${collection}/${id}`,
+      `/api/v1/collections/${collection}/documents/${id}`,
       data
     );
     return response.data; // ✅ Tu backend devuelve el objeto directamente
@@ -242,7 +258,7 @@ class NexaBaseClient {
       message: string;
       id: string;
       collection: string;
-    }>(`/api/collections/${collection}/${id}`);
+    }>(`/api/v1/collections/${collection}/documents/${id}`);
     return { message: response.data.message }; // ✅ Mantener compatibilidad
   }
 
@@ -252,7 +268,7 @@ class NexaBaseClient {
     id: string
   ): Promise<T> {
     const response = await this.client.get<T>(
-      `/api/collections/${collection}/${id}`
+      `/api/v1/collections/${collection}/documents/${id}`
     );
     return response.data; // ✅ Tu backend devuelve el objeto directamente
   }
