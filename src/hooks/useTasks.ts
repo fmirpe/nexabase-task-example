@@ -29,10 +29,10 @@ export function useTasks(): UseTasksReturn {
         per_page: 100,
       });
       
-      setTasks(response.data || []);
+      setTasks((response.data as Task[]) || []);
       setError(null);
-    } catch (err: any) {
-      setError(err.message || "Error al cargar tareas");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Error al cargar tareas");
       setTasks([]);
     } finally {
       setLoading(false);
@@ -44,10 +44,10 @@ export function useTasks(): UseTasksReturn {
       // ✅ Usando el SDK oficial
       const response = await nexabase.createDocument("task", taskData);
       const newTask = response.data;
-      setTasks((prev) => [newTask, ...prev]);
-      return newTask;
-    } catch (err: any) {
-      throw new Error(err.message || "Error al crear tarea");
+      setTasks((prev) => [newTask as Task, ...prev]);
+      return newTask as Task;
+    } catch (err: unknown) {
+      throw new Error((err as Error).message || "Error al crear tarea");
     }
   };
 
@@ -59,9 +59,9 @@ export function useTasks(): UseTasksReturn {
       setTasks((prev) =>
         prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
       );
-      return updatedTask;
-    } catch (err: any) {
-      throw new Error(err.message || "Error al actualizar tarea");
+      return updatedTask as Task;
+    } catch (err: unknown) {
+      throw new Error((err as Error).message || "Error al actualizar tarea");
     }
   };
 
@@ -70,8 +70,8 @@ export function useTasks(): UseTasksReturn {
       // ✅ Usando el SDK oficial
       await nexabase.deleteDocument("task", id);
       setTasks((prev) => prev.filter((task) => task.id !== id));
-    } catch (err: any) {
-      throw new Error(err.message || "Error al eliminar tarea");
+    } catch (err: unknown) {
+      throw new Error((err as Error).message || "Error al eliminar tarea");
     }
   };
 
