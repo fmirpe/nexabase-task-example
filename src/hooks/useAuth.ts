@@ -1,148 +1,95 @@
 "use client";
 
-import React, {
-  useState,
-  useEffect,
-  createContext,
-  useContext,
-  ReactNode,
-} from "react";
+import React, { useState, useEffect, createContext, useContext, ReactNode } from "react";
 import nexabase from "@/lib/nexabase";
 import { User } from "@/types";
 
-type AuthContextValue = {
+interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, fullName: string) => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<User>;
+  logout: () => Promise<void>;
   loading: boolean;
-};
+}
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | null>(null);
 
-type AuthProviderProps = {
-  children: ReactNode;
-};
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true;
-    let isInitializing = false;
-
-    const initializeAuth = async () => {
-      if (isInitializing) return;
-      isInitializing = true;
-
+    const initAuth = async () => {
       try {
         const token = localStorage.getItem("nexabase_token");
-
-        if (!token) {
-          if (isMounted) {
-            setUser(null);
-            setLoading(false);
-          }
-          return;
-        }
-
-        nexabase.setToken(token);
-
-        try {
-          const userProfile = await nexabase.getUserProfile();
-
-          if (isMounted) {
-            setUser(userProfile);
-          }
-        } catch (error: any) {
-          console.error("Error loading user profile:", error);
-
-          if (error?.response?.status === 401) {
-            console.log("Token inválido (401), limpiando...");
-            localStorage.removeItem("nexabase_token");
-            nexabase.setToken("");
-          } else {
-            console.log("Error temporal, manteniendo token");
-          }
-
-          if (isMounted) {
-            setUser(null);
-          }
+        if (token) {
+          // ✅ Usando el SDK oficial
+          const currentUser = await nexabase.getCurrentUser();
+          setUser({
+            id: currentUser.id,
+            email: currentUser.email,
+            full_name: currentUser.full_name || currentUser.name || currentUser.email,
+            role: currentUser.role as "user" | "admin" | "developer",
+            created_at: currentUser.created_at || new Date().toISOString(),
+            updated_at: currentUser.updated_at || new Date().toISOString(),
+          });
         }
       } catch (error) {
-        console.error("Auth initialization error:", error);
-        if (isMounted) {
-          setUser(null);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        console.error("Auth error:", error);
+        localStorage.removeItem("nexabase_token");
+        setUser(null);
       }
+      setLoading(false);
     };
 
-    initializeAuth();
-
-    return () => {
-      isMounted = false;
-    };
+    initAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
-      const { auth, user: userData } = await nexabase.login(email, password);
+      // ✅ Usando el SDK oficial
+      const { access_token, user: userData } = await nexabase.signIn(email, password);
+      
+      localStorage.setItem("nexabase_token", access_token);
+      
+      const userObject: User = {
+        id: userData.id,
+        email: userData.email,
+        full_name: userData.full_name || userData.name || userData.email,
+        role: userData.role as "user" | "admin" | "developer",
+        created_at: userData.created_at || new Date().toISOString(),
+        updated_at: userData.updated_at || new Date().toISOString(),
+      };
 
-      localStorage.setItem("nexabase_token", auth.access_token);
-      nexabase.setToken(auth.access_token);
-
-      setUser(userData);
+      setUser(userObject);
+      return userObject;
     } catch (error) {
       console.error("Login error:", error);
       throw error;
     }
   };
 
-  const register = async (
-    email: string,
-    password: string,
-    fullName: string
-  ): Promise<void> => {
-    await nexabase.register(email, password, fullName);
-  };
-
-  const logout = (): void => {
-    localStorage.removeItem("nexabase_token");
-    nexabase.setToken("");
-    setUser(null);
-
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
+  const logout = async (): Promise<void> => {
+    try {
+      // ✅ Usando el SDK oficial
+      await nexabase.signOut();
+    } catch (error) {
+      console.warn("Logout failed:", error);
     }
+    localStorage.removeItem("nexabase_token");
+    setUser(null);
   };
 
-  const value: AuthContextValue = {
-    user,
-    login,
-    register,
-    logout,
-    loading,
-  };
-
-  // ✅ Usar React.createElement para evitar error de Turbopack
   return React.createElement(
     AuthContext.Provider,
-    { value: value },
+    { value: { user, login, logout, loading } },
     children
   );
-}
-
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-
-  return context;
 }

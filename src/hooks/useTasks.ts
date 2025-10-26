@@ -2,13 +2,7 @@
 
 import { useState, useEffect } from "react";
 import nexabase from "@/lib/nexabase";
-import {
-  Task,
-  CreateTaskData,
-  UpdateTaskData,
-  PaginatedResponse,
-} from "@/types";
-import { AxiosError } from "axios";
+import { Task, CreateTaskData, UpdateTaskData } from "@/types";
 
 interface UseTasksReturn {
   tasks: Task[];
@@ -29,15 +23,17 @@ export function useTasks(): UseTasksReturn {
   const fetchTasks = async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await nexabase.getRecords<Task>("task", {
+      // ✅ Usando el SDK oficial
+      const response = await nexabase.listDocuments("task", {
         sort: "-created_at",
         per_page: 100,
       });
+      
       setTasks(response.data || []);
       setError(null);
-    } catch (err) {
-      const axiosError = err as AxiosError<{ message: string }>;
-      setError(axiosError.response?.data?.message || "Error al cargar tareas");
+    } catch (err: any) {
+      setError(err.message || "Error al cargar tareas");
+      setTasks([]);
     } finally {
       setLoading(false);
     }
@@ -45,47 +41,37 @@ export function useTasks(): UseTasksReturn {
 
   const createTask = async (taskData: CreateTaskData): Promise<Task> => {
     try {
-      const response = await nexabase.createRecord<Task>("task", taskData);
-      const newTask = response.data ? response.data : response;
+      // ✅ Usando el SDK oficial
+      const response = await nexabase.createDocument("task", taskData);
+      const newTask = response.data;
       setTasks((prev) => [newTask, ...prev]);
       return newTask;
-    } catch (err) {
-      const axiosError = err as AxiosError<{ message: string }>;
-      throw new Error(
-        axiosError.response?.data?.message || "Error al crear tarea"
-      );
+    } catch (err: any) {
+      throw new Error(err.message || "Error al crear tarea");
     }
   };
 
-  const updateTask = async (
-    id: string,
-    taskData: UpdateTaskData
-  ): Promise<Task> => {
+  const updateTask = async (id: string, taskData: UpdateTaskData): Promise<Task> => {
     try {
-      const response = await nexabase.updateRecord<Task>("task", id, taskData);
-      const updatedTask = response.data ? response.data : response;
-
+      // ✅ Usando el SDK oficial - PATCH para actualización parcial
+      const response = await nexabase.updateDocument("task", id, taskData);
+      const updatedTask = response.data;
       setTasks((prev) =>
         prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
       );
       return updatedTask;
-    } catch (err) {
-      const axiosError = err as AxiosError<{ message: string }>;
-      throw new Error(
-        axiosError.response?.data?.message || "Error al actualizar tarea"
-      );
+    } catch (err: any) {
+      throw new Error(err.message || "Error al actualizar tarea");
     }
   };
 
   const deleteTask = async (id: string): Promise<void> => {
     try {
-      await nexabase.deleteRecord("task", id);
+      // ✅ Usando el SDK oficial
+      await nexabase.deleteDocument("task", id);
       setTasks((prev) => prev.filter((task) => task.id !== id));
-    } catch (err) {
-      const axiosError = err as AxiosError<{ message: string }>;
-      throw new Error(
-        axiosError.response?.data?.message || "Error al eliminar tarea"
-      );
+    } catch (err: any) {
+      throw new Error(err.message || "Error al eliminar tarea");
     }
   };
 
