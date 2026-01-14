@@ -32,14 +32,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (token) {
           // ✅ Usando el SDK oficial
           const currentUser = await nexabase.getCurrentUser();
-          setUser({
-            id: currentUser.id,
-            email: currentUser.email,
-            full_name: currentUser.full_name || currentUser.name || currentUser.email,
-            role: currentUser.role as "user" | "admin" | "developer",
-            created_at: currentUser.created_at || new Date().toISOString(),
-            updated_at: currentUser.updated_at || new Date().toISOString(),
-          });
+          
+          if (currentUser) {
+            const u = currentUser as any;
+            setUser({
+              id: u.id,
+              email: u.email,
+              full_name: u.full_name || u.name || u.email,
+              role: (u.role as unknown as "user" | "admin" | "developer") || "user",
+              created_at: u.created_at || new Date().toISOString(),
+              updated_at: u.updated_at || new Date().toISOString(),
+            });
+          } else {
+            // Si el token existe pero no hay usuario (ej: expirado)
+            localStorage.removeItem("nexabase_token");
+            setUser(null);
+          }
         }
       } catch (error) {
         console.error("Auth error:", error);
@@ -57,15 +65,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ✅ Usando el SDK oficial
       const { access_token, user: userData } = await nexabase.signIn(email, password);
       
+      if (!access_token || !userData) {
+        throw new Error("Credenciales inválidas o respuesta del servidor incompleta");
+      }
+
       localStorage.setItem("nexabase_token", access_token);
       
+      const u = userData as any;
       const userObject: User = {
-        id: userData.id,
-        email: userData.email,
-        full_name: userData.full_name || userData.name || userData.email,
-        role: userData.role as "user" | "admin" | "developer",
-        created_at: userData.created_at || new Date().toISOString(),
-        updated_at: userData.updated_at || new Date().toISOString(),
+        id: u.id,
+        email: u.email,
+        full_name: u.full_name || u.name || u.email,
+        role: (u.role as unknown as "user" | "admin" | "developer") || "user",
+        created_at: u.created_at || new Date().toISOString(),
+        updated_at: u.updated_at || new Date().toISOString(),
       };
 
       setUser(userObject);

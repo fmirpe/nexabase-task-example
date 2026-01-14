@@ -19,17 +19,29 @@ export function useTasks(): UseTasksReturn {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // ✅ Normalizar datos del SDK para asegurar que tengan 'id'
+  const mapToTask = (doc: any): Task => {
+    return {
+      ...doc,
+      id: doc.id || doc._id || doc.$id || `temp-${Math.random().toString(36).substr(2, 9)}`, 
+    } as Task;
+  };
 
   const fetchTasks = async (): Promise<void> => {
     try {
       setLoading(true);
       // ✅ Usando el SDK oficial
-      const response = await nexabase.listDocuments("task", {
+      const response = (await nexabase.listDocuments("task", {
         sort: "-created_at",
         per_page: 100,
-      });
+      })) as any;
       
-      setTasks((response.data as Task[]) || []);
+      // ✅ Manejar diferentes estructuras de respuesta
+      const rawData = response.data || response;
+      const docs = Array.isArray(rawData) ? rawData : (rawData.data || []);
+      
+      setTasks(docs.map(mapToTask));
       setError(null);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Error al cargar tareas");
@@ -42,33 +54,40 @@ export function useTasks(): UseTasksReturn {
   const createTask = async (taskData: CreateTaskData): Promise<Task> => {
     try {
       // ✅ Usando el SDK oficial
-      const response = await nexabase.createDocument("task", taskData);
-      const newTask = response.data;
-      setTasks((prev) => [newTask as Task, ...prev]);
-      return newTask as Task;
+      const response = (await nexabase.createDocument("task", taskData)) as any;
+      const newTask = mapToTask(response.data || response);
+      setTasks((prev) => [newTask, ...prev]);
+      return newTask;
     } catch (err: unknown) {
-      throw new Error((err as Error).message || "Error al crear tarea");
+      console.error("Create task detail:", err);
+      throw new Error((err as any)?.response?.data?.message || (err as Error).message || "Error al crear tarea");
     }
   };
 
   const updateTask = async (id: string, taskData: UpdateTaskData): Promise<Task> => {
     try {
       // ✅ Usando el SDK oficial - PATCH para actualización parcial
-      const response = await nexabase.updateDocument("task", id, taskData);
-      const updatedTask = response.data;
+      const response = (await nexabase.updateDocument("task", id, taskData)) as any;
+      const updatedTask = mapToTask(response.data || response);
+      
       setTasks((prev) =>
         prev.map((task) => (task.id === id ? { ...task, ...updatedTask } : task))
       );
-      return updatedTask as Task;
+      
+      // ✅ Opcional: recargar para asegurar sincronización
+      // await fetchTasks(); 
+      
+      return updatedTask;
     } catch (err: unknown) {
-      throw new Error((err as Error).message || "Error al actualizar tarea");
+      console.error("Update task detail:", err);
+      throw new Error((err as any)?.response?.data?.message || (err as Error).message || "Error al actualizar tarea");
     }
   };
 
   const deleteTask = async (id: string): Promise<void> => {
     try {
       // ✅ Usando el SDK oficial
-      await nexabase.deleteDocument("task", id);
+      (await nexabase.deleteDocument("task", id)) as any;
       setTasks((prev) => prev.filter((task) => task.id !== id));
     } catch (err: unknown) {
       throw new Error((err as Error).message || "Error al eliminar tarea");

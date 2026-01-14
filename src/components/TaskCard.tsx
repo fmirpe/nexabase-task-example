@@ -3,9 +3,9 @@
 import { Task } from '@/types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
-  CheckIcon, 
-  ClockIcon, 
+import {
+  CheckIcon,
+  ClockIcon,
   ExclamationTriangleIcon,
   PencilIcon,
   TrashIcon
@@ -30,7 +30,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCar
 
   // ✅ CORREGIR: ahora status es boolean
   const getStatusColor = (status: boolean) => {
-    return status 
+    return status
       ? 'text-green-600 border-green-200 bg-green-50'  // completada (true)
       : 'text-gray-600 border-gray-200 bg-white';      // pendiente (false)
   };
@@ -48,7 +48,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCar
           <h3 className={`text-lg font-semibold ${task.status ? 'line-through text-gray-500' : ''}`}>
             {task.title}
           </h3>
-          
+
           {task.description && (
             <p className="mt-1 text-sm text-gray-600 line-clamp-2">
               {task.description}
@@ -59,15 +59,14 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCar
             {/* Priority Badge */}
             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
               {task.priority === 'high' && <ExclamationTriangleIcon className="w-3 h-3 mr-1" />}
-              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+              {task.priority ? (task.priority.charAt(0).toUpperCase() + task.priority.slice(1)) : 'Low'}
             </span>
 
             {/* ✅ NUEVO: Status Badge */}
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              task.status 
-                ? 'text-green-600 bg-green-100' 
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${task.status
+                ? 'text-green-600 bg-green-100'
                 : 'text-gray-600 bg-gray-100'
-            }`}>
+              }`}>
               {task.status && <CheckIcon className="w-3 h-3 mr-1" />}
               {getStatusText(task.status)}
             </span>
@@ -99,7 +98,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCar
               <CheckIcon className="w-4 h-4" />
             </button>
           )}
-          
+
           <button
             onClick={() => onEdit(task)}
             className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-md transition-colors"
@@ -107,7 +106,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete }: TaskCar
           >
             <PencilIcon className="w-4 h-4" />
           </button>
-          
+
           <button
             onClick={() => onDelete(task.id)}
             className="p-1.5 text-red-600 hover:bg-red-100 rounded-md transition-colors"

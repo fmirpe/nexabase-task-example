@@ -7,8 +7,8 @@ import { useTasks, Task } from '@/hooks/useTasks';
 import TaskCard from '@/components/TaskCard';
 import TaskModal from '@/components/TaskModal';
 import { CreateTaskData } from '@/types';
-import { 
-  PlusIcon, 
+import {
+  PlusIcon,
   MagnifyingGlassIcon,
   ArrowRightOnRectangleIcon,
   CheckCircleIcon,
@@ -18,7 +18,7 @@ import {
 export default function Dashboard() {
   const { user, logout, loading: authLoading } = useAuth();
   const { tasks, loading, error, createTask, updateTask, deleteTask, completeTask } = useTasks();
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,8 +48,8 @@ export default function Dashboard() {
   // ✅ CORREGIR: Filtrar tareas para boolean status
   const filteredTasks = tasks.filter(task => {
     const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         task.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      task.description?.toLowerCase().includes(searchTerm.toLowerCase());
+
     // ✅ CORREGIR: filtro de status para boolean
     let matchesStatus = true;
     if (filterStatus === 'completed') {
@@ -58,9 +58,9 @@ export default function Dashboard() {
       matchesStatus = task.status === false;
     }
     // Si filterStatus === 'all', matchesStatus sigue siendo true
-    
+
     const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
-    
+
     return matchesSearch && matchesStatus && matchesPriority;
   });
 
@@ -117,7 +117,7 @@ export default function Dashboard() {
                 Powered by <span className="font-semibold text-blue-600">NexaBase</span>
               </p>
             </div>
-            
+
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-700">
                 Hola, <span className="font-medium">{user.full_name}</span>
@@ -248,8 +248,8 @@ export default function Dashboard() {
             <div className="bg-white rounded-lg p-12 shadow-sm border border-gray-200 text-center">
               <ClockIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {searchTerm || filterStatus !== 'all' || filterPriority !== 'all' 
-                  ? 'No se encontraron tareas' 
+                {searchTerm || filterStatus !== 'all' || filterPriority !== 'all'
+                  ? 'No se encontraron tareas'
                   : 'No hay tareas aún'
                 }
               </h3>
@@ -270,9 +270,9 @@ export default function Dashboard() {
               )}
             </div>
           ) : (
-            filteredTasks.map((task) => (
+            filteredTasks.map((task, index) => (
               <TaskCard
-                key={task.id}
+                key={task.id || `task-${index}`}
                 task={task}
                 onComplete={completeTask}
                 onEdit={handleEditTask}
